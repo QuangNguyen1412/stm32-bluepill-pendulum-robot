@@ -82,16 +82,22 @@ int main(void)
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
   MX_TIM2_Init();
+  MX_TIM1_Init();
+#ifdef USING_HAL
+  MX_GPIO_Init();
   MX_I2C1_Init();
 	HAL_I2C_MspInit(&hi2c1);
-  MX_USART1_UART_Init();
-  HAL_UART_MspInit(&huart1);
 	MX_USART2_UART_Init();
 	HAL_UART_MspInit(&huart2);
-  MX_TIM1_Init();
-	
+#else
+	I2C1_Init(&hi2c1);
+	USART2_Init(&huart2);
+#endif
+
+	MX_USART1_UART_Init();
+	HAL_UART_MspInit(&huart1);
+
 	HAL_Delay(500);
 	printf("ECE 6780 - Balancing Robot\n");
 
