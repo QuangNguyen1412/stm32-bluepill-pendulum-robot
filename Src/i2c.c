@@ -116,6 +116,31 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
   }
 } 
 
+/**	@function 	I2C1_Init
+	*	@brief			Initialize I2C1 peripherals
+	*	@configuration
+	*	PB6     ------> I2C1_SCL
+	*	PB7     ------> I2C1_SDA
+	*	f SCL = 100kHz (you need to know f PCLK1 = 32MHz to calculate f SCL, I2C1->CCR)
+	*	Peripheral clock frequency = 32MHz (I2C1->CR2)
+	*	TRISE (I2C1->TRISE): 33
+	*	Address mode: 7 bit
+	*	Mode: Master Transmit and Master Receive
+	*	No stress: disable
+	*	Duty cycle (I2C1->CCR): 2
+	*/
+void I2C1_Init(I2C_HandleTypeDef* i2cHandle)
+{
+	i2cHandle->Instance = I2C1;
+	// Enable RCC clock
+	
+	// Enable GPIO pin
+	
+	// I2C configure
+	
+}
+
+
 /* USER CODE BEGIN 1 */
 /* Read request for a memory of the MPU6050 */
 void MPU_mem_read(uint8_t memAddr) 

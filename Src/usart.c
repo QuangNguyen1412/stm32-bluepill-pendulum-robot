@@ -72,7 +72,7 @@ void MX_USART2_UART_Init(void)
 {
 
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 57600;
+  huart2.Init.BaudRate = 9600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -167,6 +167,25 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
   }
 } 
 
+/**	@function 	USART2_Init
+	*	@brief			Initialize USART2 peripherals
+	*	@configuration
+	*	Baud rate: 9600
+	*	Word lenght: 8 bits
+	*	Stop bit: 1
+	*	Parity: none
+	*	Mode: Transmit and Receive
+	*	Hardware control: None
+	*	Over sampling: 16
+	*/
+void USART2_Init(UART_HandleTypeDef* uartHandle)
+{
+	uartHandle->Instance=USART2;
+	// Enable RCC clock for USART 2 peripheral
+
+	// Configure the register
+
+}
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
