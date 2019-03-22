@@ -36,8 +36,11 @@ Bluetooth UART 2
 Module: HM-10 BLE
 Send AT command through UART 2 to communicate with Bluetooth module
 Interrupt routine for connection and receive command
-Data sheet:
+
+Default baudrate: 9600
+Test AT command: Send "AT", module returns "OK"
+
+HM-10 Data sheet:
 ftp://imall.iteadstudio.com/Modules/IM130614001_Serial_Port_BLE_Module_Master_Slave_HM-10/DS_IM130614001_Serial_Port_BLE_Module_Master_Slave_HM-10.pdf
 
 Note: you will have a better view of AT command through the HM-10 document. There is some free tools from the internet that can be used to test AT command
-
