@@ -1,0 +1,9 @@
+*.o
+*.a
+*.d
+*.crf
+/MDK-ARM/self_balancing_robot_stm32f103c8/*
+/MDK-ARM/*
+MDK-ARM/self_balancing_robot_stm32f103c8.uvguix.WIN
+
+MDK-ARM/self_balancing_robot_stm32f103c8.uvguix.WIN
