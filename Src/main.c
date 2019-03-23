@@ -91,6 +91,7 @@ int main(void)
 	MX_USART2_UART_Init();
 	HAL_UART_MspInit(&huart2);
 #else
+	GPIO_Init();
 	I2C1_Init(&hi2c1);
 	USART2_Init(&huart2);
 #endif
