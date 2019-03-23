@@ -76,6 +76,19 @@ void MX_GPIO_Init(void)
 
 }
 
+void GPIO_Init()
+{
+	/* Configure PC13 to be output, push-pull, speed up to 2Mhz */
+	// Enable the clock source for GPIOC
+	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+
+	// Mode output push pull and 2Mhz frequency
+	GPIOC->CRH |= (0x2 << 20);
+	GPIOC->CRH &= ~(0x3 << 22);
+
+	// Set GPIOC, pin 13 to 1
+	GPIOC->ODR |= (0x1 << 13);
+}
 /* USER CODE BEGIN 2 */
 
 /* USER CODE END 2 */
