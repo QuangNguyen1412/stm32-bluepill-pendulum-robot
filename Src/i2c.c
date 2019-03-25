@@ -131,13 +131,39 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
 	*/
 void I2C1_Init(I2C_HandleTypeDef* i2cHandle)
 {
-	i2cHandle->Instance = I2C1;
-	// Enable RCC clock
-	
-	// Enable GPIO pin
-	
-	// I2C configure
-	
+  // Enable RCC clock for GPIOB
+  RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+
+  // Set pin PB7(SDA) to alternate out open drain max 10MHz
+  GPIOB->CRL |= (0xD << 28);
+
+  // Set pin PB6(SCL) to alternate push pull max 10MHz
+  GPIOB->CRL |= (0xD << 24);
+
+  // I2C configure
+  // enable RCC clock for i2c1
+  RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+
+  // Get PCLK
+  uint32_t freq = HAL_RCC_GetPCLK1Freq();
+  printf("Pclk1: %d\n", freq);
+
+  freq /= 1000000;
+  I2C1->CR2 |= freq;          // Set clock to 32MHz
+  I2C1->CCR &= ~(1 << 15);    // SM mode
+  I2C1->CCR &= ~(1 << 14);    // Duty cycle
+  I2C1->CCR |= 0xA0;          // 32 MHz, 100Khz
+  I2C1->TRISE = freq + 1;     // Set clock rise time
+  I2C1->OAR1 &= ~(1 << 15);   // Set Address mode
+  I2C1->CR1 |= (1 << 7);      // Set No stretch disable
+  I2C1->CR1 |= 1;             // Enable peripheral
+
+  /* Enable the i2c instance state and code to be used later with HAL library */
+  i2cHandle->Instance = I2C1;
+	i2cHandle->ErrorCode = HAL_I2C_ERROR_NONE;
+  i2cHandle->State = HAL_I2C_STATE_READY;
+  i2cHandle->PreviousState = HAL_I2C_MODE_NONE;
+  i2cHandle->Mode = HAL_I2C_MODE_NONE;
 }
 
 
@@ -145,17 +171,17 @@ void I2C1_Init(I2C_HandleTypeDef* i2cHandle)
 /* Read request for a memory of the MPU6050 */
 void MPU_mem_read(uint8_t memAddr) 
 {
-	uint8_t data = 0;
-	
-	if(HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, memAddr, I2C_MEMADD_SIZE_8BIT, &data, 1, 100) == HAL_OK)
-	{
-		printf("Receive successful 0x%X\n", data);
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}
-	else
-	{
-		printf("Failed %d\n", hi2c1.ErrorCode);
-	}
+  uint8_t data = 0;
+  uint16_t errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, memAddr, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("Receive successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
 }
 /* USER CODE END 1 */
 
