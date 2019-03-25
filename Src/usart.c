@@ -180,11 +180,22 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 	*/
 void USART2_Init(UART_HandleTypeDef* uartHandle)
 {
+  // Enable RCC clock for GPIO A
+  RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+  /* Configure the register for GPIOA */
+  /** USART2 GPIO Configuration
+      PA2     ------> USART2_TX
+      PA3     ------> USART2_RX
+  */
+  // Enable RCC clock for USART 2 peripheral
+  RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+  /* Configure UART2 */
+  
+  /* Initialize the UART state */
 	uartHandle->Instance=USART2;
-	// Enable RCC clock for USART 2 peripheral
-
-	// Configure the register
-
+  uartHandle->ErrorCode = HAL_UART_ERROR_NONE;
+  uartHandle->gState= HAL_UART_STATE_READY;
+  uartHandle->RxState= HAL_UART_STATE_READY;
 }
 /* USER CODE BEGIN 1 */
 
