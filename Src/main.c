@@ -49,7 +49,7 @@
 
 
 /* Private typedef -----------------------------------------------------------*/
-
+//#define USING_HAL
 
 /* Private define ------------------------------------------------------------*/
 
@@ -84,6 +84,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_TIM2_Init();
   MX_TIM1_Init();
+	MX_USART1_UART_Init();
+	HAL_UART_MspInit(&huart1);
+
 #ifdef USING_HAL
   MX_GPIO_Init();
   MX_I2C1_Init();
@@ -95,8 +98,6 @@ int main(void)
 	USART2_Init(&huart2);
 #endif
 
-	MX_USART1_UART_Init();
-	HAL_UART_MspInit(&huart1);
 
 	HAL_Delay(500);
 	printf("ECE 6780 - Balancing Robot\n");
