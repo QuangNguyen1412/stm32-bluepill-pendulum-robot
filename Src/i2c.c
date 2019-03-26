@@ -41,7 +41,9 @@
 #include "i2c.h"
 
 I2C_HandleTypeDef hi2c1;
+st_MPU6050_Data v_MPU6050_Data;
 
+void printSensorData(st_MPU6050_Data*);
 /* I2C1 init function */
 void MX_I2C1_Init(void)
 {
@@ -182,6 +184,20 @@ void MPU_mem_read(uint8_t memAddr)
   {
     printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
   }
+}
+
+/* Read MPU sensor data */
+void MPU_Sensor_Data_read(st_MPU6050_Data* data)
+{
+
+  /* Debug the sensor value */
+  printSensorData(data);
+}
+
+void printSensorData(st_MPU6050_Data* data)
+{
+  printf("Accel X=%d\tY=%d\tZ=%d\n", data->accel_x, data->accel_y, data->accel_z);
+  printf("Gyro X=%d\tY=%d\tZ=%d\n", data->gyro_x, data->gyro_y, data->gyro_z);
 }
 /* USER CODE END 1 */
 

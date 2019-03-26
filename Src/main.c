@@ -58,10 +58,11 @@
 
 
 /* Private variables ---------------------------------------------------------*/
-
+extern st_MPU6050_Data v_MPU6050_Data;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void Initialize_MPU6050_StructValue(void);
 
 
 /* Private user code ---------------------------------------------------------*/
@@ -99,9 +100,9 @@ int main(void)
 	USART2_Init(&huart2);
 #endif
 
-
-	HAL_Delay(500);
-	printf("ECE 6780 - Balancing Robot\n");
+  Initialize_MPU6050_StructValue();
+  HAL_Delay(100);
+  printf("ECE 6780 - Balancing Robot\n");
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -153,6 +154,16 @@ void SystemClock_Config(void)
 void Error_Handler()
 {
 	printf("Error Found\n");
+}
+
+void Initialize_MPU6050_StructValue()
+{
+  v_MPU6050_Data.accel_x = 0;
+  v_MPU6050_Data.accel_y = 0;
+  v_MPU6050_Data.accel_z = 0;
+  v_MPU6050_Data.gyro_x = 0;
+  v_MPU6050_Data.gyro_y = 0;
+  v_MPU6050_Data.gyro_z = 0;
 }
 #ifdef __GNUC__
   /* With GCC/RAISONANCE, small printf (option LD Linker->Libraries->Small printf
