@@ -194,6 +194,98 @@ void MPU_Sensor_Data_read(st_MPU6050_Data* data)
   printSensorData(data);
 }
 
+/* Initialize the MPU: Power, Gyro FS, Accel FS */
+void MPU_Initialize()
+{
+  MPU_power_configure();
+  MPU_Gyro_configure();
+  MPU_Accel_configure();
+}
+
+void MPU_power_configure()
+{
+  // Clock select PLL with X axis gyroscope
+  // Disable temperature sensor
+  // disable sleep mode
+  // Disable cycle
+  uint8_t data = 0x1 | (0x1 << 3);
+  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_PWR_MGMT_1_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_power_configure: Configure successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("MPU_power_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+
+  errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_PWR_MGMT_1_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_power_configure: Read successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+}
+
+void MPU_Gyro_configure()
+{
+  // FS +- 1000 */s
+  uint8_t data = (0x2 << 3);
+  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_GYRO_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Gyro_configure: Configure successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("MPU_power_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+
+  errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_GYRO_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Gyro_configure: Read successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+}
+
+void MPU_Accel_configure()
+{
+  // AFS +- 16 g
+  uint8_t data = (0x3 << 3);
+  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_ACCEL_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Accel_configure: Configure successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("MPU_power_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+
+  errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_ACCEL_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Accel_configure: Read successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+}
+
 void printSensorData(st_MPU6050_Data* data)
 {
   printf("Accel X=%d\tY=%d\tZ=%d\n", data->accel_x, data->accel_y, data->accel_z);

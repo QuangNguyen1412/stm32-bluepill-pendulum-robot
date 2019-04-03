@@ -52,6 +52,9 @@ extern I2C_HandleTypeDef hi2c1;
 
 #define MPU6050_I2C_ADDR (0x69 << 1)
 #define MPU6050_WHO_I_AM_ADDR 0x75
+#define MPU6050_GYRO_CONFIG_ADDR 0x1B
+#define MPU6050_ACCEL_CONFIG_ADDR 0x1C
+#define MPU6050_PWR_MGMT_1_ADDR 0x6B
 #define MPU6050_ACCEL_XOUT_H_ADDR 0x3B
 #define MPU6050_ACCEL_XOUT_L_ADDR 0x3C
 #define MPU6050_ACCEL_YOUT_H_ADDR 0x3D
@@ -82,6 +85,11 @@ void I2C1_Init(I2C_HandleTypeDef*);
 void MPUConfigure(void);
 void MPU_mem_read(uint8_t memAddr);
 void MPU_Sensor_Data_read(st_MPU6050_Data*);
+void MPU_Initialize();
+void MPU_power_configure();
+void MPU_Gyro_configure();
+void MPU_Accel_configure();
+void MPU_configure(uint8_t memAddr, uint8_t configuration);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

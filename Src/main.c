@@ -103,12 +103,11 @@ int main(void)
   Initialize_MPU6050_StructValue();
   HAL_Delay(100);
   printf("ECE 6780 - Balancing Robot\n");
-
+  MPU_Initialize();
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 		MPU_mem_read(MPU6050_WHO_I_AM_ADDR);
 		HAL_Delay(1000);
     /* USER CODE END WHILE */
