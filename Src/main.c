@@ -108,8 +108,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		MPU_mem_read(MPU6050_WHO_I_AM_ADDR);
-		HAL_Delay(1000);
+		MPU_Data_read(&v_MPU6050_Data);
+		HAL_Delay(100);
     /* USER CODE END WHILE */
   }
 }

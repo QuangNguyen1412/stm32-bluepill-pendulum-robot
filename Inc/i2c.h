@@ -55,6 +55,7 @@ extern I2C_HandleTypeDef hi2c1;
 #define MPU6050_GYRO_CONFIG_ADDR 0x1B
 #define MPU6050_ACCEL_CONFIG_ADDR 0x1C
 #define MPU6050_PWR_MGMT_1_ADDR 0x6B
+#define MPU6050_FILTER_CONFIG_ADDR 0x1A
 #define MPU6050_ACCEL_XOUT_H_ADDR 0x3B
 #define MPU6050_ACCEL_XOUT_L_ADDR 0x3C
 #define MPU6050_ACCEL_YOUT_H_ADDR 0x3D
@@ -67,15 +68,17 @@ extern I2C_HandleTypeDef hi2c1;
 #define MPU6050_GYRO_YOUT_L_ADDR 0x46
 #define MPU6050_GYRO_ZOUT_H_ADDR 0x47
 #define MPU6050_GYRO_ZOUT_L_ADDR 0x48
+
+
 /* USER CODE END Private defines */
 typedef struct MPU6050_Data
 {
-  uint16_t accel_x;
-  uint16_t accel_y;
-  uint16_t accel_z;
-  uint16_t gyro_x;
-  uint16_t gyro_y;
-  uint16_t gyro_z;
+  float accel_x;
+  float accel_y;
+  float accel_z;
+  float gyro_x;
+  float gyro_y;
+  float gyro_z;
 } st_MPU6050_Data;
 
 void MX_I2C1_Init(void);
@@ -84,12 +87,17 @@ void I2C1_Init(I2C_HandleTypeDef*);
 /* USER CODE BEGIN Prototypes */
 void MPUConfigure(void);
 void MPU_mem_read(uint8_t memAddr);
-void MPU_Sensor_Data_read(st_MPU6050_Data*);
-void MPU_Initialize();
-void MPU_power_configure();
-void MPU_Gyro_configure();
-void MPU_Accel_configure();
+void MPU_Initialize(void);
+void MPU_power_configure(void);
+void MPU_Gyro_configure(void);
+void MPU_Accel_configure(void);
+void MPU_Accel_read(st_MPU6050_Data*);
+void MPU_Gyro_read(st_MPU6050_Data*);
+void MPU_Data_read(st_MPU6050_Data*);
 void MPU_configure(uint8_t memAddr, uint8_t configuration);
+void MPU_Filter_FrameSync_configure(void);
+void Accel_RollDegreeCal(st_MPU6050_Data*);
+void printSensorData(st_MPU6050_Data* data);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

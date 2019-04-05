@@ -39,10 +39,19 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "i2c.h"
+#include <math.h>
 
+#define A_R 16384.0
+#define M_PI 3.141592
+#define ACEL_X_OFFSET 0.092
+#define ACEL_Y_OFFSET 0.002
+#define ACEL_Z_OFFSET 0.03
+#define DEBUG 1
 I2C_HandleTypeDef hi2c1;
 st_MPU6050_Data v_MPU6050_Data;
-
+// This will be modified under function Accel_RollDegreeCal()
+float current_degree = 0;
+uint8_t Acel_Config = (0 << 3);
 void printSensorData(st_MPU6050_Data*);
 /* I2C1 init function */
 void MX_I2C1_Init(void)
@@ -61,7 +70,6 @@ void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
-
 }
 
 void HAL_I2C_MspInit(I2C_HandleTypeDef* i2cHandle)
@@ -186,29 +194,27 @@ void MPU_mem_read(uint8_t memAddr)
   }
 }
 
-/* Read MPU sensor data */
-void MPU_Sensor_Data_read(st_MPU6050_Data* data)
-{
-
-  /* Debug the sensor value */
-  printSensorData(data);
-}
-
 /* Initialize the MPU: Power, Gyro FS, Accel FS */
 void MPU_Initialize()
 {
   MPU_power_configure();
-  MPU_Gyro_configure();
+  MPU_Filter_FrameSync_configure();
   MPU_Accel_configure();
+  MPU_Gyro_configure();
 }
 
 void MPU_power_configure()
 {
-  // Clock select PLL with X axis gyroscope
+  // Clock select PLL with Z axis gyroscope
   // Disable temperature sensor
   // disable sleep mode
   // Disable cycle
-  uint8_t data = 0x1 | (0x1 << 3);
+  uint8_t data = (0x1 << 7);
+  
+  HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_PWR_MGMT_1_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  HAL_Delay(100);
+  
+  data = 0x3;
   uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_PWR_MGMT_1_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
   if(errCode == HAL_OK)
   {
@@ -232,10 +238,38 @@ void MPU_power_configure()
   }
 }
 
+void MPU_Filter_FrameSync_configure()
+{
+  // Configure filter at mode 4, framesync at mode 0
+  uint8_t configuration = 0x1;
+  uint8_t data = configuration;
+  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_FILTER_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Filter_FrameSync_configure: Configure successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("MPU_Filter_FrameSync_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+
+  errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_FILTER_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  if(errCode == HAL_OK)
+  {
+    printf("MPU_Filter_FrameSync_configure: Read successful 0x%X\n", data);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  }
+  else
+  {
+    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+  }
+}
+
 void MPU_Gyro_configure()
 {
   // FS +- 1000 */s
-  uint8_t data = (0x2 << 3);
+  uint8_t data = (0x1 << 3);
   uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_GYRO_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
   if(errCode == HAL_OK)
   {
@@ -244,7 +278,7 @@ void MPU_Gyro_configure()
   }
   else
   {
-    printf("MPU_power_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+    printf("MPU_Gyro_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
   }
 
   errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_GYRO_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
@@ -261,35 +295,100 @@ void MPU_Gyro_configure()
 
 void MPU_Accel_configure()
 {
-  // AFS +- 16 g
-  uint8_t data = (0x3 << 3);
-  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_ACCEL_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
+  // AFS +- 8 g
+  uint16_t errCode = HAL_I2C_Mem_Write(&hi2c1, MPU6050_I2C_ADDR, MPU6050_ACCEL_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &Acel_Config, 1, 100);
   if(errCode == HAL_OK)
   {
-    printf("MPU_Accel_configure: Configure successful 0x%X\n", data);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
   }
   else
   {
     printf("MPU_power_configure: Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
   }
+}
 
-  errCode = HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, MPU6050_ACCEL_CONFIG_ADDR, I2C_MEMADD_SIZE_8BIT, &data, 1, 100);
-  if(errCode == HAL_OK)
+/* Read data from gyro and accel */
+void MPU_Data_read(st_MPU6050_Data* data)
+{
+  MPU_Accel_read(data);
+  MPU_Gyro_read(data);
+  #ifdef DEBUG
+      printSensorData(&v_MPU6050_Data);
+  #endif
+}
+
+void MPU_Accel_read(st_MPU6050_Data* mpuData)
+{
+  uint8_t data[6] = {0,0,0,0,0,0};
+  uint16_t accel_x, accel_y, accel_z;
+  /* Read Accel X */
+  if(HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, 
+                              MPU6050_ACCEL_XOUT_H_ADDR, 
+                              I2C_MEMADD_SIZE_8BIT, 
+                              data, 6, 100) == HAL_OK)
   {
-    printf("MPU_Accel_configure: Read successful 0x%X\n", data);
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-  }
-  else
-  {
-    printf("Failed %d and error Code %d\n", hi2c1.ErrorCode, errCode);
+    accel_x = (data[0] << 8) | (data[1]);
+    accel_y = ((data[2] << 8) | (data[3]));
+    accel_z = ((data[4] << 8) | (data[5]));
+    mpuData->accel_x = (float)(accel_x);
+    mpuData->accel_y = (float)(accel_y);
+    mpuData->accel_z = (float)(accel_z);
   }
 }
 
+void MPU_Gyro_read(st_MPU6050_Data* mpuData)
+{
+  uint8_t data[6] = {0,0,0,0,0,0};
+  /* Read Gyro X */
+  if(HAL_I2C_Mem_Read(&hi2c1, MPU6050_I2C_ADDR, 
+                              MPU6050_GYRO_XOUT_H_ADDR, 
+                              I2C_MEMADD_SIZE_8BIT, 
+                              data, 6, 100) == HAL_OK)
+  {
+    mpuData->gyro_x = (data[0] << 8) | (data[1]);
+    mpuData->gyro_y = (data[2] << 8) | (data[3]);
+    mpuData->gyro_z = (data[4] << 8) | (data[5]);
+  }
+}
+
+void Accel_RollDegreeCal(st_MPU6050_Data* data)
+{
+  float acc_x, acc_y, acc_z;
+	float acc_pitch, acc_roll;
+	//normalized accelerometer readings. Constructed by taking
+	//raw accelerometer readings and diving by accelerometer scaling
+	//factor.
+  acc_x = (data->accel_x) / A_R - ACEL_X_OFFSET;
+	acc_y = (data->accel_y) / A_R - ACEL_Y_OFFSET;
+	acc_z = (data->accel_z) / A_R + ACEL_Z_OFFSET;
+  acc_pitch = 180 * atan2(acc_y, acc_z) / M_PI;
+  // Decide negative or positive roll degree
+  // if acc_x < 3 => positive degree; else negative
+  // 4 is the maximum value of accelerometer after scaling
+  // Accel scale factor is 16384, MPU has 16 bit ADC => 2^16/16384 = 4
+  acc_roll = acc_x < 3 ? (180 * atan2(acc_x, acc_z) / M_PI): -180 * atan2(4-acc_x, acc_z) / M_PI;
+  current_degree = acc_roll;
+}
 void printSensorData(st_MPU6050_Data* data)
 {
-  printf("Accel X=%d\tY=%d\tZ=%d\n", data->accel_x, data->accel_y, data->accel_z);
-  printf("Gyro X=%d\tY=%d\tZ=%d\n", data->gyro_x, data->gyro_y, data->gyro_z);
+	float acc_x, acc_y, acc_z;
+	float acc_pitch, acc_roll;
+
+
+	acc_x = (data->accel_x) / A_R - ACEL_X_OFFSET;
+	acc_y = (data->accel_y) / A_R - ACEL_Y_OFFSET;
+	acc_z = (data->accel_z) / A_R + ACEL_Z_OFFSET;
+  
+  acc_pitch = 180 * atan2(acc_y, acc_z) / M_PI;
+  acc_roll = 180 * atan2(acc_x, acc_z) / M_PI;
+  
+  // Decide negative or positive roll degree
+  // if acc_x < 3 => positive degree; else negative
+  // 4 is the maximum value of accelerometer after scaling
+  acc_roll = acc_x < 3 ? (180 * atan2(acc_x, acc_z) / M_PI): -180 * atan2(4-acc_x, acc_z) / M_PI;
+  printf("Pitch: %f \tRoll: %f \t", acc_pitch, acc_roll);
+  printf("AcX=%f \tAcY=%f \tAcZ=%f \t", acc_x, acc_y, acc_z);
+  printf("GyX=%f \tGyY=%f \tGyZ=%f\n", data->gyro_x, data->gyro_y, data->gyro_z);
 }
 /* USER CODE END 1 */
 
