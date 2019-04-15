@@ -73,7 +73,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-
 }
 
 void GPIO_Init()
@@ -81,13 +80,29 @@ void GPIO_Init()
 	/* Configure PC13 to be output, push-pull, speed up to 2Mhz */
 	// Enable the clock source for GPIOC
 	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
 	// Mode output push pull and 2Mhz frequency
-	GPIOC->CRH |= (0x2 << 20);
-	GPIOC->CRH &= ~(0x3 << 22);
-
-	// Set GPIOC, pin 13 to 1
+	GPIOC->CRH |= (0x2 << 20);    // MODE 10: Output, max speed 2MHz
+	GPIOC->CRH &= ~(0x3 << 22);   // CONF 00: Output push-pull
 	GPIOC->ODR |= (0x1 << 13);
+
+  /* Motor driver IN1 IN2 Configure*/
+  // A7 Config
+  GPIOA->CRL |= (0x2 << 28);  // MODE 10: Output, max speed 2MHz
+  GPIOA->CRL &= ~(0x3 << 30); // CONF 00: Output push-pull
+  GPIOA->ODR |= (0x1 << 7);   // Set pin to 1
+ 
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  // B1 Config
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
 }
 /* USER CODE BEGIN 2 */
 
