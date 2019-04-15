@@ -96,7 +96,7 @@ void MPU_Gyro_read(st_MPU6050_Data*);
 void MPU_Data_read(st_MPU6050_Data*);
 void MPU_configure(uint8_t memAddr, uint8_t configuration);
 void MPU_Filter_FrameSync_configure(void);
-void Accel_RollDegreeCal(st_MPU6050_Data*);
+void Accel_RollDegreeCal(st_MPU6050_Data*, float*);
 void printSensorData(st_MPU6050_Data* data);
 /* USER CODE END Prototypes */
 
