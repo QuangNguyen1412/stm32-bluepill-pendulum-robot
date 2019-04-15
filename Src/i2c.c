@@ -46,11 +46,11 @@
 #define ACEL_X_OFFSET 0.092
 #define ACEL_Y_OFFSET 0.002
 #define ACEL_Z_OFFSET 0.03
-#define DEBUG 1
+//#define DEBUG 1
 I2C_HandleTypeDef hi2c1;
 st_MPU6050_Data v_MPU6050_Data;
 // This will be modified under function Accel_RollDegreeCal()
-float current_degree = 0;
+volatile float current_degree = 0;
 uint8_t Acel_Config = (0 << 3);
 void printSensorData(st_MPU6050_Data*);
 /* I2C1 init function */
@@ -351,23 +351,23 @@ void MPU_Gyro_read(st_MPU6050_Data* mpuData)
   }
 }
 
-void Accel_RollDegreeCal(st_MPU6050_Data* data)
+void Accel_RollDegreeCal(st_MPU6050_Data* data, float* acc_roll)
 {
   float acc_x, acc_y, acc_z;
-	float acc_pitch, acc_roll;
+//	float acc_pitch;
 	//normalized accelerometer readings. Constructed by taking
 	//raw accelerometer readings and diving by accelerometer scaling
 	//factor.
   acc_x = (data->accel_x) / A_R - ACEL_X_OFFSET;
 	acc_y = (data->accel_y) / A_R - ACEL_Y_OFFSET;
 	acc_z = (data->accel_z) / A_R + ACEL_Z_OFFSET;
-  acc_pitch = 180 * atan2(acc_y, acc_z) / M_PI;
+//  acc_pitch = 180 * atan2(acc_y, acc_z) / M_PI;
   // Decide negative or positive roll degree
   // if acc_x < 3 => positive degree; else negative
   // 4 is the maximum value of accelerometer after scaling
   // Accel scale factor is 16384, MPU has 16 bit ADC => 2^16/16384 = 4
-  acc_roll = acc_x < 3 ? (180 * atan2(acc_x, acc_z) / M_PI): -180 * atan2(4-acc_x, acc_z) / M_PI;
-  current_degree = acc_roll;
+  *acc_roll = acc_x < 3 ? (180 * atan2(acc_x, acc_z) / M_PI): -180 * atan2(4-acc_x, acc_z) / M_PI;
+  current_degree = *acc_roll;
 }
 void printSensorData(st_MPU6050_Data* data)
 {
