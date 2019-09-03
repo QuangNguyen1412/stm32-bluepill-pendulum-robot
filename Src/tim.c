@@ -39,11 +39,61 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "tim.h"
+#include "i2c.h"
 
+
+
+#define INTERVAL_TIME_MS    0.04
+#define TIMER_1_PSC         63999
+#define TIMER_1_FREQ        1000
+#define TIMER_1_PERIOD      INTERVAL_TIME_MS*TIMER_1_FREQ
+#define TIMER_2_PSC_32HZ    0
+#define TIMER_2_ARR_20KHZ   1400
+#define MIN_SPEED_SCALE     TIMER_2_ARR_20KHZ*1/5
+#define MAX_SPEED_SCALE     TIMER_2_ARR_20KHZ
+#define BALANCING_POINT     0
+#define FORWARDING_POINT    -15.0
+#define CONSTANT_KP         11
+#define CONSTANT_KI         35
+#define CONSTANT_KD         0.1
+#define MIN_PWM_CYCLE_FOR_MOTOR     959     // Through observation
+#define MAX_PWM_CYCLE_FOR_MOTOR     1050    // Through calculation: max battery, max operation voltage
+
+#define _DIR_FOWARD() do { \
+                          HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, 0);\
+                          GPIOA->ODR |= (0x1 << 7);  \
+                         } while(0)
+
+#define _DIR_BACKWARD() do { \
+                          HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, 1);\
+                          GPIOA->ODR &= ~(0x1 << 7);  \
+                         } while(0)
+
+#define _SPEED_UPDATE(SPEED) do {\
+                              TIM2->CCR3 = SPEED;\
+                             } while(0)
+
+#define _MOTOR_PWM_SCALE(PID_OUTPUT)    do  {\
+                                            PID_OUTPUT = MIN_PWM_CYCLE_FOR_MOTOR+(PID_OUTPUT/TIMER_2_ARR_20KHZ)*(MAX_PWM_CYCLE_FOR_MOTOR-MIN_PWM_CYCLE_FOR_MOTOR);\
+                                            } while(0)
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
+volatile float current_error = 0;
+volatile float last_error = 0;
+volatile float stable_degree = BALANCING_POINT;
+volatile float intergral_error = 0;
+volatile float derivative_error = 0;
+volatile uint8_t Kp = CONSTANT_KP;
+volatile float Ki = CONSTANT_KI;
+volatile float Kd = CONSTANT_KD;
+volatile int16_t duty_cycle =1;
+
+/* For debuging */
+volatile int16_t motor_speed = 0;   	// Measured motor speed
+float accel_angle = 0;
+float gyro_angle = 0;
+extern st_MPU6050_Data v_MPU6050_Data;
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
@@ -54,9 +104,9 @@ void MX_TIM1_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 64000;
+  htim1.Init.Prescaler = TIMER_1_PSC;     // Timmer runs at 1kHz
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 10;
+  htim1.Init.Period = TIMER_1_PERIOD;          // Update event at 25Hz
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -75,7 +125,6 @@ void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-
 }
 /* TIM2 init function */
 void MX_TIM2_Init(void)
@@ -84,9 +133,10 @@ void MX_TIM2_Init(void)
   TIM_OC_InitTypeDef sConfigOC = {0};
 
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 3;   // Timer run at 16 MHz
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 0;
+//  htim2.Init.Period = 800;    // PWM at 20kHz
+  htim2.Init.Period = 1600;    // PWM at 20kHz
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
@@ -100,32 +150,50 @@ void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 400;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
+
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  HAL_TIM_MspPostInit(&htim2);
+}
 
+void pwmInit()
+{
+  __HAL_RCC_TIM2_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /* Initialize PB10 */  
+//  GPIO_InitTypeDef GPIO_InitStruct = {0};
+//  GPIO_InitStruct.Pin = GPIO_PIN_10;
+//  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+//  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+//  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//  __HAL_AFIO_REMAP_TIM2_ENABLE();
+  /* Init Timer 2 channel 3 */
+  TIM2->PSC = TIMER_2_PSC_32HZ;      // Timmer runs at freq 32MHz
+  TIM2->ARR = TIMER_2_ARR_20KHZ;    // PWM runs at 2kHz
+  TIM2->CR1 |= TIM_CR1_ARPE;
+  TIM2->EGR |= TIM_EGR_UG;
+  TIM2->CCMR2 |= (0x6 << 4);  // Configure OC3M
+  TIM2->CCMR2 |= (0x1 << 3);  // Configure OC3PE preload enable
+  TIM2->CCMR2 |= (0x1 << 2);  // Configure OC3FE fast enable
+  TIM2->CCMR2 &= ~(0x3);      // Configure CC3S
+  TIM2->CCR3 = 0;
+  TIM2->CR1 |= TIM_CR1_CEN;
+  TIM2->CCER |= (0x1 << 8);   // Enable PWM output
+  TIM2->CCER &= ~(0x1 << 1);  // Polarity
 }
 
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
 {
-
   if(tim_baseHandle->Instance==TIM1)
   {
   /* USER CODE BEGIN TIM1_MspInit 0 */
@@ -143,61 +211,8 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
   }
 }
 
-void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef* tim_pwmHandle)
-{
-
-  if(tim_pwmHandle->Instance==TIM2)
-  {
-  /* USER CODE BEGIN TIM2_MspInit 0 */
-
-  /* USER CODE END TIM2_MspInit 0 */
-    /* TIM2 clock enable */
-    __HAL_RCC_TIM2_CLK_ENABLE();
-  /* USER CODE BEGIN TIM2_MspInit 1 */
-
-  /* USER CODE END TIM2_MspInit 1 */
-  }
-}
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
-{
-
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(timHandle->Instance==TIM2)
-  {
-  /* USER CODE BEGIN TIM2_MspPostInit 0 */
-
-  /* USER CODE END TIM2_MspPostInit 0 */
-  
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**TIM2 GPIO Configuration    
-    PB10     ------> TIM2_CH3
-    PB11     ------> TIM2_CH4
-    PA15     ------> TIM2_CH1
-    PB3     ------> TIM2_CH2 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_3;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_15;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    __HAL_AFIO_REMAP_TIM2_ENABLE();
-
-  /* USER CODE BEGIN TIM2_MspPostInit 1 */
-
-  /* USER CODE END TIM2_MspPostInit 1 */
-  }
-
-}
-
 void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
 {
-
   if(tim_baseHandle->Instance==TIM1)
   {
   /* USER CODE BEGIN TIM1_MspDeInit 0 */
@@ -228,7 +243,93 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
 
   /* USER CODE END TIM2_MspDeInit 1 */
   }
-} 
+}
+
+void TIM1_IRQHandler()
+{
+//  st_MPU6050_Data data = {0,0,0,0,0,0};
+  static float complement_angle;
+  static float output = 0;
+  MPU_Data_read(&v_MPU6050_Data);
+  Accel_RollDegreeCal(&v_MPU6050_Data, &accel_angle);
+  Gyro_RollDegreeCalc(&v_MPU6050_Data, &gyro_angle);
+  // Complementary filter
+  complement_angle = 0.95 * (complement_angle + gyro_angle * INTERVAL_TIME_MS) + 0.05 * accel_angle;
+  motor_speed = complement_angle; // Debuggin
+  current_error = stable_degree - (motor_speed<<1);
+  if (((current_error >= -4) & (current_error <= 4)) |
+                              (current_error >= 28) |
+                              (current_error <= -28))
+  {
+    last_error = 0;
+    current_error = 0;
+    intergral_error = 0;
+    derivative_error = 0;
+    complement_angle = 0;
+//    duty_cycle = 0;
+    output = 0;
+  }
+  else
+  { // Calculate PID
+    if ((current_error < 0) & (intergral_error > 0))
+    { // Ensure the intergral error is negative right away when error is negative
+      intergral_error = 0;
+    }
+    else if ((current_error > 0) & (intergral_error < 0))
+    {
+      intergral_error = 0;
+    }
+    intergral_error += (current_error)*INTERVAL_TIME_MS;
+    // Clamp the value
+    if (intergral_error > MAX_SPEED_SCALE*3)
+    {
+      intergral_error = MAX_SPEED_SCALE*3;
+    }
+    else if (intergral_error < -MAX_SPEED_SCALE*3)
+    {
+      intergral_error = -MAX_SPEED_SCALE*3;
+    }
+    derivative_error = -(current_error - last_error)/INTERVAL_TIME_MS;
+    if (derivative_error > MAX_SPEED_SCALE*3)
+    {
+      derivative_error = MAX_SPEED_SCALE*3;
+    }
+    else if (derivative_error < -MAX_SPEED_SCALE*3)
+    {
+      derivative_error = -MAX_SPEED_SCALE*3;
+    }
+    output = Kp*current_error + Ki*intergral_error + Kd*derivative_error;
+    last_error = current_error;
+//    duty_cycle = output;   // Define MAX duty cycle at 30/30
+    // Direction
+
+    if (output < 0)
+    {
+      if (output < -MAX_PWM_CYCLE_FOR_MOTOR)
+      {
+        output = MAX_PWM_CYCLE_FOR_MOTOR;
+      }
+      else
+      {
+        output = -output;
+      }
+      _DIR_BACKWARD();    // Robot going backward
+    }
+    else
+    {
+      if (output > MAX_PWM_CYCLE_FOR_MOTOR) // Define MAX duty cycle at 300 output error
+      {
+        output = MAX_PWM_CYCLE_FOR_MOTOR;
+      }
+      _DIR_FOWARD();
+    }
+    _MOTOR_PWM_SCALE(output);
+  }
+//  _SPEED_UPDATE(output);
+  duty_cycle = output;
+  _SPEED_UPDATE(duty_cycle);
+  TIM1->SR &= ~(0x1);
+}
 
 /* USER CODE BEGIN 1 */
 
